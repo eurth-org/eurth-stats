@@ -1,13 +1,17 @@
 // An estimated population pyramid from two numbers: the fertility rate and
 // life expectancy.
 //
-// How: a mortality curve is fitted to the life expectancy, the fertility rate
-// gives a steady growth rate, and a population that has grown at that rate
-// for a long time (a "stable population", after Lotka) has one age structure.
-// That structure is the estimate.
+// How: a mortality curve is fitted to the life expectancy, and the fertility
+// rate gives the rate at which each new generation is larger or smaller than
+// the one before (Lotka's stable population). That alone would draw the
+// pyramid a country reaches after a century of unchanged fertility. Real
+// countries aren't there: their older generations were born when families
+// were larger. So people over thirty follow a second rate, fitted to the real
+// countries in the snapshot, and the result looks like a country of today
+// with these two numbers.
 //
 // What it can't know: wars, baby booms, famines and migration. Real pyramids
-// carry their history; this one has none. The page says so.
+// carry their history; this one has only the usual one. The page says so.
 
 /** Ten-year bands, youngest first; the last is open-ended. */
 export const BANDS = ['0–9', '10–19', '20–29', '30–39', '40–49', '50–59', '60–69', '70–79', '80+'] as const;
@@ -35,9 +39,9 @@ export interface Pyramid {
   medianAge: number;
   /** People under 15 or over 64 for every 100 aged 15 to 64. */
   dependencyRatio: number;
-  /** Natural increase in per cent a year: births minus deaths, without migration. */
-  naturalGrowth: number;
-  /** Which way the population is heading on these two numbers alone. */
+  /** Where the two numbers lead in the long run, in per cent a year, without migration. */
+  longRunGrowth: number;
+  /** Which way the population is heading in the long run on these two numbers alone. */
   shape: 'growing' | 'steady' | 'shrinking';
 }
 
@@ -54,6 +58,14 @@ const BOYS_PER_GIRL = 1.05;
 const GENERATION = 29;
 const OLDEST = 125;
 const STEP = 0.25;
+
+// Generations born before this many years ago follow the second rate.
+const TURN = 30;
+// The second rate, fitted to the countries of over a million people in the snapshot of 14 November
+// 2026: for each, the rate that gives its real share of people over 64, set against the rate its
+// fertility gives today. Older generations come from faster-growing times, by about 2.3% a year.
+const OLDER_BASE = 0.0227;
+const OLDER_SLOPE = 0.664;
 
 // The mortality curve is Siler's (1979): deaths in infancy that fade fast, a
 // steady background risk, and a risk that rises with age (Gompertz). Its five
@@ -178,7 +190,11 @@ export function estimatePyramid(fertility: number | undefined, lifeExpectancy: n
   const daughters = (fertility / (1 + BOYS_PER_GIRL)) * women(GENERATION);
   const growth = Math.log(daughters) / GENERATION;
 
-  // People at each age: births that many years ago, times the share still alive.
+  // People at each age: births that many years ago, times the share still alive. Births shrink
+  // into the past at today's rate for thirty years, and at the older generations' rate before that.
+  const older = OLDER_BASE + OLDER_SLOPE * growth;
+  const births = (age: number): number =>
+    Math.exp(-(growth * Math.min(age, TURN) + older * Math.max(age - TURN, 0)));
   const bands = BANDS.map((label) => ({ label, male: 0, female: 0 }));
   let total = 0;
   let under15 = 0;
@@ -186,7 +202,7 @@ export function estimatePyramid(fertility: number | undefined, lifeExpectancy: n
   const cumulative: number[] = [];
   for (let age = 0; age < OLDEST; age += STEP) {
     const middle = age + STEP / 2;
-    const cohort = Math.exp(-growth * middle) * STEP;
+    const cohort = births(middle) * STEP;
     const male = BOYS_PER_GIRL * cohort * men(middle);
     const female = cohort * women(middle);
     const band = bands[Math.min(bands.length - 1, Math.floor(age / 10))];
@@ -210,7 +226,7 @@ export function estimatePyramid(fertility: number | undefined, lifeExpectancy: n
   const youngShare = (under15 / total) * 100;
   const oldShare = (over64 / total) * 100;
   const workingAge = 100 - youngShare - oldShare;
-  const naturalGrowth = (Math.exp(growth) - 1) * 100;
+  const longRunGrowth = (Math.exp(growth) - 1) * 100;
 
   return {
     bands,
@@ -220,7 +236,7 @@ export function estimatePyramid(fertility: number | undefined, lifeExpectancy: n
     over64: oldShare,
     medianAge,
     dependencyRatio: ((youngShare + oldShare) / workingAge) * 100,
-    naturalGrowth,
-    shape: naturalGrowth > 0.25 ? 'growing' : naturalGrowth < -0.25 ? 'shrinking' : 'steady',
+    longRunGrowth,
+    shape: longRunGrowth > 0.25 ? 'growing' : longRunGrowth < -0.25 ? 'shrinking' : 'steady',
   };
 }
