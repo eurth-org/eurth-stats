@@ -1,0 +1,19 @@
+{
+  "name": "eurth-stats",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Stats: a free plausibility checker for a fictional nation's numbers, by Eurth. The engine and the data; the site follows once @eurth/style is released.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "vitest run",
+    "snapshot": "node tools/build-snapshot.mjs"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3",
+    "vitest": "^5.1.0"
+  }
+}
