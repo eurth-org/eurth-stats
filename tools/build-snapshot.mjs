@@ -62,10 +62,11 @@ const SERIES = {
 };
 
 async function getJson(url) {
+  // The API is quick when it answers and silent when it doesn't, so give up on a call early and try again.
   let lastError;
-  for (let attempt = 1; attempt <= 5; attempt++) {
+  for (let attempt = 1; attempt <= 10; attempt++) {
     try {
-      const response = await fetch(url, { signal: AbortSignal.timeout(90_000) });
+      const response = await fetch(url, { signal: AbortSignal.timeout(25_000) });
       if (!response.ok) throw new Error(`${response.status} for ${url}`);
       const body = await response.json();
       if (!Array.isArray(body) || body.length < 2 || !Array.isArray(body[1])) {
@@ -74,7 +75,8 @@ async function getJson(url) {
       return body;
     } catch (error) {
       lastError = error;
-      await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
+      process.stdout.write('.');
+      await new Promise((resolve) => setTimeout(resolve, 2000 * attempt));
     }
   }
   throw lastError;
@@ -187,15 +189,19 @@ const countries = states.map((state) => {
   ratio('largestCityShare', 'largestCity', 'population', 100);
   ratio('militaryPer1000', 'military', 'population', 1000);
 
-  // Military spending per soldier: the share of GDP, times that year's GDP, over that year's personnel.
-  const spending = newest(get('militarySpending'));
-  if (spending) {
-    const gdp = near(get('gdp'), spending[1]);
-    const personnel = near(get('military'), spending[1]);
-    if (gdp !== undefined && personnel !== undefined && personnel > 0) {
-      put('spendingPerSoldier', [((spending[0] / 100) * gdp) / personnel, spending[1]]);
+  // Military spending per soldier. The personnel series is the older of the two, so its newest
+  // year sets the year: that year's share of GDP, times that year's GDP, over that year's personnel.
+  const personnel = newest(get('military'));
+  if (personnel && personnel[0] > 0) {
+    const share = near(get('militarySpending'), personnel[1]);
+    const gdp = near(get('gdp'), personnel[1]);
+    if (share !== undefined && gdp !== undefined) {
+      put('spendingPerSoldier', [((share / 100) * gdp) / personnel[0], personnel[1]]);
     }
   }
+
+  // A city can't hold more than everyone; the two series disagree by a hair for city states.
+  if (values.largestCityShare && values.largestCityShare[0] > 100) values.largestCityShare[0] = 100;
 
   const country = { iso3, name: NAMES[iso3] ?? state.name };
   if (WITH_ARTICLE.has(iso3)) country.article = true;
