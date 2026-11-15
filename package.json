@@ -1,7 +1,7 @@
 {
   "name": "eurth-stats",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
   "type": "module",
   "description": "Stats: a free plausibility checker for a fictional nation's numbers, by Eurth. Static Astro site with a Svelte tool, on Cloudflare Workers.",
   "engines": {
