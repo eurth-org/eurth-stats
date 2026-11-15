@@ -1,0 +1,77 @@
+---
+// Examples: fictional nations that show each verdict, each a link into the checker. The links,
+// the cards and the verdicts are made at build time with the same code the checker uses, so
+// they can never drift apart.
+import Page from '@eurth/style/components/Page.astro';
+import { site } from '../../eurth.config.mjs';
+import { cardSvg } from '../stats/card';
+import { checkNation } from '../stats/check';
+import { shortDescription } from '../stats/describe';
+import { EXAMPLES } from '../stats/examples';
+import { encodeLink } from '../stats/link';
+
+const examples = EXAMPLES.map((example) => {
+  const report = checkNation(example.nation.inputs);
+  return {
+    ...example,
+    report,
+    href: `/?${encodeLink(example.nation)}`,
+    picture: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(cardSvg(example.nation, report, { width: 1200, height: 630, host: site.host }))}`,
+    alt: shortDescription(example.nation, report),
+  };
+});
+---
+
+<Page
+  site={site}
+  title="Example nations"
+  description="Eight fictional nations checked against real countries: a plausible kingdom, a city-state, a garrison state, a utopia and an impossible empire. Open one and change it."
+  crumbs={[{ name: 'Examples', path: '/examples/' }]}
+>
+  <div class="eu-stack">
+    <header class="eu-prose">
+      <p class="eu-kicker">Examples</p>
+      <h1>Example nations</h1>
+      <p class="eu-lead">
+        Eight made-up countries, from the entirely believable to the plainly impossible. Open one in the <a href="/">checker</a> and change its numbers; the
+        <a href="/guide/">guide</a> explains what moves each one.
+      </p>
+    </header>
+    <ul class="gallery">
+      {
+        examples.map((example) => (
+          <li>
+            <a class="eu-card" href={example.href} id={example.id}>
+              <img src={example.picture} alt={example.alt} width="1200" height="630" loading="lazy" />
+              <h2>{example.nation.name}</h2>
+              <p class="eu-data">{example.report.summary}</p>
+              <p>{example.note}</p>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</Page>
+
+<style>
+  .gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: var(--space-4);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .gallery img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: var(--radius-md);
+  }
+
+  .gallery h2 {
+    font: var(--type-heading);
+  }
+</style>

@@ -1,0 +1,333 @@
+---
+// The guide: what makes a nation's numbers believable, one number at a time, with sources and
+// the day it was last brought up to date. Every figure in the text is worked out from the
+// snapshot when the site is built, so the words and the checker can't drift apart.
+import { article, ref, wikipedia } from '@eurth/style/build';
+import Page from '@eurth/style/components/Page.astro';
+import { site } from '../../eurth.config.mjs';
+import { checkSpec, type CheckId } from '../stats/check';
+import { dollars, inWords, list } from '../stats/format';
+import { ALL, RANGES, type Dimension, type Group, type Quarter } from '../stats/ranges';
+import { SNAPSHOT, dateInWords, nameOf, valueOf } from '../stats/snapshot';
+
+const updated = SNAPSHOT.date;
+const title = 'How to give a nation believable numbers';
+const description =
+  'What makes a fictional nation’s statistics believable: density, GDP per person, growth, life expectancy, fertility, cities, soldiers and spending, with real-world ranges and sources.';
+
+const QUARTERS: Quarter[] = [1, 2, 3, 4];
+
+/** The typical band of a check among a group of real countries, as text. */
+function band(id: CheckId, group: Group = ALL): string {
+  const spec = checkSpec(id);
+  const range = RANGES.rangeFor(spec.metric, group, spec.scale === 'log');
+  if (!range) return 'no data';
+  return spec.sides === 'high' ? `up to ${spec.format(range.high)}` : `${spec.number(range.low)} to ${spec.format(range.high)}`;
+}
+
+function edge(id: CheckId, which: 'lowest' | 'highest', group: Group = ALL): string {
+  const spec = checkSpec(id);
+  const range = RANGES.rangeFor(spec.metric, group, spec.scale === 'log');
+  if (!range) return 'no data';
+  const reference = range[which];
+  return `${nameOf(reference.country)} (${spec.format(reference.value)})`;
+}
+
+function quarterNames(dimension: Exclude<Dimension, 'all'>, write: (value: number) => string): string[] {
+  const [first, second, third] = RANGES.cuts(dimension);
+  return [`Under ${write(first)}`, `${write(first)} to ${write(second)}`, `${write(second)} to ${write(third)}`, `${write(third)} and over`];
+}
+
+const incomeNames = quarterNames('income', (value) => dollars(value));
+const areaNames = quarterNames('area', (value) => `${inWords(value)} km²`);
+const populationNames = quarterNames('population', (value) => inWords(value));
+
+const byIncome = QUARTERS.map((quarter, index) => {
+  const group: Group = { dimension: 'income', quarter };
+  return {
+    name: incomeNames[index],
+    growth: band('growth', group),
+    life: band('lifeExpectancy', group),
+    fertility: band('fertility', group),
+    urban: band('urbanShare', group),
+    prices: band('priceLevel', group),
+    spending: band('governmentSpending', group),
+    perSoldier: band('spendingPerSoldier', group),
+  };
+});
+const byArea = QUARTERS.map((quarter, index) => ({ name: areaNames[index], density: band('density', { dimension: 'area', quarter }) }));
+const byPopulation = QUARTERS.map((quarter, index) => ({
+  name: populationNames[index],
+  capital: band('capitalShare', { dimension: 'population', quarter }),
+}));
+
+// Countries where a dollar buys less than it does in the United States.
+const pricey = SNAPSHOT.countries
+  .filter((country) => (valueOf(country, 'priceLevel') ?? 0) > 100)
+  .sort((a, b) => (valueOf(b, 'priceLevel') ?? 0) - (valueOf(a, 'priceLevel') ?? 0))
+  .map((country) => nameOf(country));
+// Countries with no armed forces to speak of.
+const unarmed = SNAPSHOT.countries.filter((country) => valueOf(country, 'militaryPer1000') === 0).length;
+
+// The smallest and largest real countries, for the section on sizes.
+const people = RANGES.rangeFor('population', ALL);
+const land = RANGES.rangeFor('area', ALL);
+const sizes = {
+  fewest: people ? `${nameOf(people.lowest.country)} (${inWords(people.min)} people)` : '',
+  most: people ? `${nameOf(people.highest.country)} (${inWords(people.max)})` : '',
+  smallest: land ? `${nameOf(land.lowest.country)} (${inWords(land.min)} km²)` : '',
+  largest: land ? `${nameOf(land.highest.country)} (${inWords(land.max)} km²)` : '',
+};
+
+const out = (href: string) => ref(href, site.host);
+const wiki = (name: string) => wikipedia(name, site.host);
+---
+
+<Page
+  site={site}
+  title={title}
+  description={description}
+  crumbs={[{ name: 'Guide', path: '/guide/' }]}
+  jsonld={[article(site, { headline: title, path: '/guide/', description, updated })]}
+>
+  <article class="eu-prose">
+    <p class="eu-kicker">Guide</p>
+    <h1>{title}</h1>
+    <p class="eu-lead">
+      Readers forgive a dragon sooner than a country of two million people with an army of one million. Numbers are where an invented nation is easiest to check, so
+      they are worth getting roughly right. This guide goes through them one at a time.
+    </p>
+
+    <h2 id="verdicts">How Stats reads a number</h2>
+    <p>
+      Each number is set beside the same number for real countries: the {SNAPSHOT.countries.length} member states of the United Nations, as they were when the data was
+      gathered on {dateInWords(SNAPSHOT.date)}. The <a href="/glossary/#typical-band">typical band</a> holds the middle nine in ten of them. Inside it, a number is
+      <strong>Plausible</strong>. Outside it, but no further out than some real country, it is a <strong>Stretch</strong>: it has happened, and it needs a reason. Beyond
+      every real country it is <strong>Unlikely</strong>.
+    </p>
+    <p>
+      Some numbers mean different things in different countries. A life expectancy of 62 is ordinary where incomes are low and unheard of where they are high. So where
+      it matters, your nation is compared with its <a href="/glossary/#peers">peers</a>: real countries are sorted into four equal groups by GDP per person, by
+      population or by area, and yours is judged against the group it would fall in.
+    </p>
+    <p>
+      One warning before the rest. These are the ranges of the 2020s. A nation set in 1900, or in a world without antibiotics, should look very different, and Stats
+      can’t yet tell you how.
+    </p>
+
+    <h2 id="sizes">Sizes are yours to choose</h2>
+    <p>
+      Population, area and the size of the economy get no verdict. Real countries run from {sizes.fewest} to {sizes.most}, and from {sizes.smallest} to {
+        sizes.largest
+      }. Big or small is a choice about the story. Stats only tells you which real country is about the
+      same size, so you can picture it. What it checks is how the sizes fit together.
+    </p>
+
+    <h2 id="density">Density</h2>
+    <p>
+      Divide population by land area. Among all real countries, {band('density')} is typical; the extremes are {edge('density', 'lowest')} and {
+        edge('density', 'highest')
+      }. But density depends heavily on size. A small country can be one crowded valley or one city; a large one always includes mountains, deserts or forest that
+      pull the average down.
+    </p>
+    <div class="eu-scroll">
+      <table>
+        <caption>Typical density by land area</caption>
+        <thead>
+          <tr><th scope="col">Land area</th><th scope="col">Typical density</th></tr>
+        </thead>
+        <tbody>
+          {byArea.map((row) => <tr><th scope="row">{row.name}</th><td>{row.density}</td></tr>)}
+        </tbody>
+      </table>
+    </div>
+    <p>
+      An average hides where people live. Most Egyptians live along one river; most Canadians near one border. If your nation is large and crowded, decide where
+      the food comes from. If it is large and empty, decide why nobody lives there.
+    </p>
+
+    <h2 id="wealth">GDP per person</h2>
+    <p>
+      <a href="/glossary/#gdp">GDP</a> divided by population is the usual first measure of how rich a country is. The spread is enormous: {band('gdpPerPerson')} is
+      typical, a range of nearly a hundred to one, and the ends are {edge('gdpPerPerson', 'lowest')} and {edge('gdpPerPerson', 'highest')}. The very top is all
+      small places with one lucrative trade: finance, oil or gambling. A large country can’t live off a tax haven.
+    </p>
+    <p>
+      There are two ways to count. <a href="/glossary/#nominal-gdp">Nominal GDP</a> converts everything to US dollars at the exchange rate; it says what a country can
+      buy abroad. <a href="/glossary/#ppp">PPP</a> counts what money buys at home; it says how people live, and what an army of locally paid soldiers costs. At PPP
+      the typical band is {band('gdpPppPerPerson')}: narrower, because poor countries are cheap to live in.
+    </p>
+    <p>
+      The gap between the two is the <a href="/glossary/#price-level">price level</a>. Poorer countries have lower prices, because wages are low and a haircut can’t
+      be imported. So a poor nation’s PPP figure should be two to four times its nominal one, and a rich nation’s roughly equal. Only {pricey.length} real
+      {pricey.length === 1 ? 'country is' : 'countries are'} dearer than the United States{pricey.length > 0 ? `: ${list(pricey.slice(0, 6))}${pricey.length > 6 ? ' and a few more' : ''}` : ''}.
+    </p>
+    <div class="eu-scroll">
+      <table>
+        <caption>Typical price level by GDP per person</caption>
+        <thead>
+          <tr><th scope="col">GDP per person</th><th scope="col">Typical price level</th></tr>
+        </thead>
+        <tbody>
+          {byIncome.map((row) => <tr><th scope="row">{row.name}</th><td>{row.prices}</td></tr>)}
+        </tbody>
+      </table>
+    </div>
+
+    <h2 id="growth">Growth</h2>
+    <p>
+      Any country can have one spectacular year. What matters for a nation’s character is the rate it keeps up for a decade, after inflation, and that is what Stats
+      compares with: real countries’ ten-year averages. Among all of them {band('growth')} is typical.
+    </p>
+    <p>
+      Fast growth is mostly <a href="/glossary/#catch-up-growth">catch-up</a>. A poorer economy can copy machines and methods that already exist; a rich one has to
+      invent the next ones. So sustained growth of 6% or 7% belongs to countries with a long way still to climb, and a rich economy that grows at that pace has found
+      oil, or is very small, or is about to have a crash.
+    </p>
+    <div class="eu-scroll">
+      <table>
+        <caption>Typical values by GDP per person</caption>
+        <thead>
+          <tr>
+            <th scope="col">GDP per person</th>
+            <th scope="col">Growth</th>
+            <th scope="col">Life expectancy</th>
+            <th scope="col">Fertility</th>
+            <th scope="col">Urban share</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            byIncome.map((row) => (
+              <tr>
+                <th scope="row">{row.name}</th>
+                <td>{row.growth}</td>
+                <td>{row.life}</td>
+                <td>{row.fertility}</td>
+                <td>{row.urban}</td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <h2 id="people">Life expectancy and fertility</h2>
+    <p>
+      These two move together, and both move with income: the table above shows how tightly. <a href="/glossary/#life-expectancy">Life expectancy</a> at birth is
+      an average pulled down hard by deaths in infancy, so a figure of 55 doesn’t mean people die at 55. It means many children die young and those who grow up
+      often reach 70.
+    </p>
+    <p>
+      The <a href="/glossary/#fertility-rate">fertility rate</a> is the number of children an average woman has. About 2.1 keeps a population level where few
+      children die (<a href="/glossary/#replacement-fertility">replacement fertility</a>). Every country that has grown rich has seen its fertility fall towards
+      or below that, in a shift called the <a href="/glossary/#demographic-transition">demographic transition</a>: deaths fall first, births follow a generation
+      or two later, and the population booms in between. A nation with high incomes and six children to a family would be new to history, and should say how it
+      manages.
+    </p>
+    <p>
+      From these two numbers Stats draws an estimated <a href="/glossary/#population-pyramid">population pyramid</a>. High fertility gives a wide base and a young
+      country; low fertility a narrow base and an old one. The estimate assumes an ordinary past. Your nation’s real pyramid should carry its history: a notch for
+      a war, a bulge for the boom after it, a missing generation where people emigrated.
+    </p>
+
+    <h2 id="cities">Cities and the capital</h2>
+    <p>
+      The <a href="/glossary/#urban-share">urban share</a> rises with income, as the table shows, because farms need fewer hands and factories and offices need
+      more. A rich nation of villages needs explaining; so does a poor nation where nearly everyone lives in town, unless it is a city-state or a desert.
+    </p>
+    <p>
+      How much of the country lives in the capital depends mostly on how big the country is. A small nation’s capital is often the only real city, a
+      <a href="/glossary/#primate-city">primate city</a>, with a third of the population. A giant’s largest city rarely holds one person in ten.
+    </p>
+    <div class="eu-scroll">
+      <table>
+        <caption>The largest city’s share of the population, by population</caption>
+        <thead>
+          <tr><th scope="col">Population</th><th scope="col">Typical share</th></tr>
+        </thead>
+        <tbody>
+          {byPopulation.map((row) => <tr><th scope="row">{row.name}</th><td>{row.capital}</td></tr>)}
+        </tbody>
+      </table>
+    </div>
+    <p>
+      Only a large capital is ever out of line. A small one is always possible, because a capital needn’t be the largest city: Canberra, Brasília and Washington
+      were all built to be capitals and nothing else. And a capital can never hold more people than all the towns and cities together.
+    </p>
+
+    <h2 id="military">Soldiers and what they cost</h2>
+    <p>
+      Count <a href="/glossary/#active-military">active personnel</a> for every 1,000 people. {band('militaryPer1000')} is typical; {unarmed} real countries keep no
+      armed forces at all, and the most militarised is {edge('militaryPer1000', 'highest')}. Above ten or so, a country has conscription, a hostile neighbour or
+      both. Every soldier is a worker missing from a farm or a factory, which is why even states that fear for their lives rarely go far beyond that in peacetime.
+    </p>
+    <p>
+      Spending is counted as a share of GDP: {band('militarySpending')} is typical. Members of NATO agreed in 2014 to aim for 2%, which gives a sense of what a
+      comfortable country considers a serious effort. The real countries far above the band are at war or expect to be; the highest is {edge('militarySpending', 'highest')}.
+    </p>
+    <p>
+      Divide the spending by the soldiers and you learn what kind of force it is. A few thousand dollars a head buys rifles, boots and rations. A few hundred
+      thousand buys a professional force with ships, aircraft and satellites. Poor countries can’t afford the second kind, and rich ones can’t pay their soldiers
+      the first kind’s wages.
+    </p>
+    <div class="eu-scroll">
+      <table>
+        <caption>Typical spending by GDP per person</caption>
+        <thead>
+          <tr><th scope="col">GDP per person</th><th scope="col">Military spending per soldier</th><th scope="col">Government spending</th></tr>
+        </thead>
+        <tbody>
+          {byIncome.map((row) => <tr><th scope="row">{row.name}</th><td>{row.perSoldier}</td><td>{row.spending}</td></tr>)}
+        </tbody>
+      </table>
+    </div>
+
+    <h2 id="government">Government spending</h2>
+    <p>
+      Richer countries’ governments spend a larger share of GDP, mostly on pensions, health and schools; economists call the pattern Wagner’s law. A low-income
+      state that spends half its GDP has no real precedent, because it can’t collect that much tax from farmers and street traders. A rich one that spends a tenth
+      has no pensions, no public hospitals, or an oil fund that pays for everything.
+    </p>
+    <p>
+      A caution about the real figures here: for most countries they cover <a href="/glossary/#central-government">central government</a> only. Federal countries,
+      where states and provinces do much of the spending, look smaller than they are. If your nation is a federation, read the lower end kindly. And whatever the
+      government spends, the military’s share has to fit inside it.
+    </p>
+
+    <h2 id="together">Numbers that have to agree</h2>
+    <ul>
+      <li>The capital can’t be larger than the country, or than all its towns and cities together.</li>
+      <li>The military can’t spend more than the whole government does.</li>
+      <li>There can’t be more soldiers than people.</li>
+      <li>A PPP figure far below the nominal one means prices above any real country’s.</li>
+      <li>High income goes with long lives, small families and large towns. One of these out of step is a story; all of them out of step is a mistake.</li>
+    </ul>
+
+    <h2 id="stretch">Making a stretch work</h2>
+    <p>
+      A Stretch isn’t a fault. Every real country outside the typical band is there for a reason, and the reasons are a list of good plots: an oil field found
+      twenty years ago, a border nobody trusts, a city that outgrew its country, a generation lost to a war. If Stats calls one of your numbers a stretch, look at
+      the countries it names, find out what put them there, and decide what put yours there. If it says Unlikely, you are past everything that exists today, and
+      you’ll want something no real country has: magic, an empire’s tribute, or a different century.
+    </p>
+    <p>Ready? Open the <a href="/">checker</a>, or start from one of the <a href="/examples/">examples</a>. When the numbers hold, give them a country: <a href={out('https://eurth.org')}>Eurth</a> has a world for it to live in.</p>
+
+    <h2 id="sources">Sources</h2>
+    <ul>
+      <li>
+        <a href={out('https://databank.worldbank.org/source/world-development-indicators')}>World Development Indicators</a>, The World Bank: every real-world figure
+        on this page except military spending. The <a href="/data/">data page</a> lists each series.
+      </li>
+      <li><a href={out('https://www.sipri.org/databases/milex')}>SIPRI Military Expenditure Database</a>, Stockholm International Peace Research Institute: military spending.</li>
+      <li><a href={out('https://population.un.org/wpp/')}>World Population Prospects</a>, United Nations: the population, fertility and life expectancy estimates behind the World Bank’s series.</li>
+      <li><a href={wiki('Purchasing power parity')}>Purchasing power parity</a> and the <a href={wiki('Penn effect')}>Penn effect</a>, Wikipedia: why poorer countries are cheaper.</li>
+      <li><a href={wiki('Demographic transition')}>Demographic transition</a> and <a href={wiki('Total fertility rate')}>Total fertility rate</a>, Wikipedia.</li>
+      <li><a href={wiki('Primate city')}>Primate city</a>, Wikipedia: the idea goes back to the geographer Mark Jefferson in 1939.</li>
+      <li><a href={wiki("Wagner's law")}>Wagner’s law</a>, Wikipedia: government spending and income.</li>
+      <li>S. H. Preston, P. Heuveline and M. Guillot, <cite>Demography: Measuring and Modeling Population Processes</cite> (2001): life tables and stable populations, the basis of the pyramid.</li>
+      <li>W. Siler, “A competing-risk model for animal mortality”, <cite>Ecology</cite> 60 (1979): the mortality curve the pyramid uses.</li>
+    </ul>
+    <p class="eu-muted">Last updated <time datetime={updated}>{dateInWords(updated)}</time>, with the real-world figures gathered that day.</p>
+  </article>
+</Page>

@@ -1,0 +1,105 @@
+---
+// The checker, and under it what search engines and newcomers both want: what it is, how to
+// read it, and answers to the usual questions (also given to search engines as structured data).
+import { faqPage, webApplication } from '@eurth/style/build';
+import Page from '@eurth/style/components/Page.astro';
+import { site } from '../../eurth.config.mjs';
+import { VERDICTS, VERDICT_MEANING, VERDICT_WORD } from '../stats/check';
+import { SNAPSHOT, dateInWords } from '../stats/snapshot';
+import Checker from '../ui/Checker.svelte';
+
+const gathered = dateInWords(SNAPSHOT.date);
+const faq = [
+  { q: 'Is Stats free?', a: 'Yes. There is no account, no watermark and no paid tier. It is made by the Eurth worldbuilding community for anyone who needs it.' },
+  {
+    q: 'What does it compare my nation with?',
+    a: `With the 193 member states of the United Nations, using open data gathered on ${gathered}. Where a number depends on how rich or how big a country is, your nation is compared with real countries of similar income, population or area.`,
+  },
+  {
+    q: 'What do Plausible, Stretch and Unlikely mean?',
+    a: 'Plausible: inside the range where nine in ten comparable real countries sit. Stretch: outside that range, but at least one real country is further out, so it can be done and needs a reason. Unlikely: beyond every comparable real country today, or not possible at all.',
+  },
+  { q: 'Do I have to fill in everything?', a: 'No. Every number is optional. Stats runs the checks your numbers allow and leaves the rest alone.' },
+  {
+    q: 'Where is my nation saved?',
+    a: 'In its link. The link holds every number, so copying the link is saving it. You can also download a results card or a CSV, or save your nation as a profile file that the other Eurth tools can read. Nothing is kept in your browser or on a server.',
+  },
+  { q: 'Is it only for modern nations?', a: 'For now, yes: the ranges are those of real countries in the 2020s. Earlier eras are planned.' },
+  { q: 'Does it work offline, and on a phone?', a: 'Yes to both. After the first visit the site keeps a copy of itself on your device and opens without a connection.' },
+];
+---
+
+<Page
+  site={site}
+  jsonld={[
+    webApplication(site, {
+      featureList: [
+        'Thirteen plausibility checks against real countries',
+        'Range bars with the typical band and the full spread',
+        'Estimated population pyramid',
+        'Link that holds every number',
+        'Results card as PNG, WebP or SVG',
+        'CSV of the checks',
+        'Nation profile file',
+      ],
+    }),
+    faqPage(faq),
+  ]}
+>
+  <div class="eu-stack">
+    <header class="eu-stack intro">
+      <p class="eu-kicker">Stats, by Eurth</p>
+      <h1>Is my nation realistic?</h1>
+      <p class="eu-lead">Enter your nation’s numbers and see how each compares with real countries. Free, in your browser, no account needed.</p>
+    </header>
+
+    <!-- client:load draws the checker as real HTML first, then wakes it up. -->
+    <Checker client:load siteName={site.name} siteUrl={site.url} />
+
+    <section class="eu-prose">
+      <h2>How it works</h2>
+      <ol>
+        <li>Type the numbers you have: population, area, GDP, life expectancy and so on. Every box is optional.</li>
+        <li>Each check shows where your nation sits among real countries, with a verdict and one sentence of why.</li>
+        <li>Copy the link, the results card or the description, or save your nation’s profile file for the next Eurth tool.</li>
+      </ol>
+
+      <h2>The three verdicts</h2>
+      <dl>
+        {
+          VERDICTS.map((verdict) => (
+            <>
+              <dt>{VERDICT_WORD[verdict]}</dt>
+              <dd>{VERDICT_MEANING[verdict]}</dd>
+            </>
+          ))
+        }
+      </dl>
+      <p>
+        A stretch isn’t a mistake. Real countries are out there too, and each has a reason: an oil boom, a border under threat, a city that is the whole country.
+        Give yours one. The <a href="/guide/">guide</a> explains what moves each number, the <a href="/glossary/">glossary</a> has the words, the
+        <a href="/examples/">examples</a> show each verdict, and the <a href="/data/">data page</a> says where the real-world numbers come from.
+      </p>
+
+      <h2>Questions</h2>
+      <dl>
+        {
+          faq.map((item) => (
+            <>
+              <dt>{item.q}</dt>
+              <dd>{item.a}</dd>
+            </>
+          ))
+        }
+      </dl>
+    </section>
+  </div>
+
+  <Fragment slot="inspirations">Stats rests on open data from the World Bank and SIPRI, and takes after Flagwright and Governmint.</Fragment>
+</Page>
+
+<style>
+  .intro {
+    gap: var(--space-2);
+  }
+</style>

@@ -77,3 +77,22 @@ export function count(amount: number, one: string, many: string): string {
 export function sentenceCase(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
+
+/**
+ * A number as it goes back into a text box: easy to read and to edit, and
+ * exactly the same number when read again. 48200000 -> "48.2 million";
+ * 512000 -> "512,000"; 79.4 -> "79.4".
+ */
+export function editable(value: number): string {
+  if (!Number.isFinite(value)) return '';
+  const size = Math.abs(value);
+  for (const [unit, word] of WORDS) {
+    if (size < unit) continue;
+    const scaled = Number((value / unit).toPrecision(6));
+    // Only where the short form is the whole truth: 48,200,001 stays as digits.
+    if (scaled * unit === value) return `${scaled.toLocaleString('en-GB', { maximumFractionDigits: 6 })} ${word}`;
+    break;
+  }
+  // Whole numbers get their commas; anything with decimals is written out in full, so no digit is lost.
+  return Number.isInteger(value) ? value.toLocaleString('en-GB', { maximumFractionDigits: 0 }) : String(value);
+}

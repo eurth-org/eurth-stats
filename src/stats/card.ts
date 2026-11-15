@@ -76,7 +76,7 @@ function fit(text: string, width: number, size: number, wide = 0.56): string {
 const round = (value: number): number => Math.round(value * 10) / 10;
 
 function icon(definition: IconDefinition, x: number, y: number, size: number, fill: string): string {
-  const [width, height, , , path] = definition.icon;
+  const [, height, , , path] = definition.icon;
   const scale = size / height;
   const d = Array.isArray(path) ? path.join(' ') : path;
   return `<path transform="translate(${round(x)} ${round(y)}) scale(${scale.toFixed(4)})" fill="${fill}" d="${d}"/>`;

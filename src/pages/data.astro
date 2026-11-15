@@ -1,0 +1,284 @@
+---
+// The data page: where the real-world numbers come from, under which licences, and how the
+// ranges were made from them. Everything here is read from the snapshot when the site is built.
+import { article, ref } from '@eurth/style/build';
+import Page from '@eurth/style/components/Page.astro';
+import { site } from '../../eurth.config.mjs';
+import { CHECKS } from '../stats/check';
+import { dollars, inWords } from '../stats/format';
+import { ALL, BAND_HIGH, BAND_LOW, MIN_PEERS, RANGES, type Dimension, type Group, type Quarter } from '../stats/ranges';
+import { SNAPSHOT, dateInWords, nameOf, yearOf, type Metric } from '../stats/snapshot';
+
+const title = 'The data behind Stats';
+const description =
+  'Where Stats gets its real-world numbers, under which licences, and how the typical bands and full spreads were made from them. Sources, method and every range, in full.';
+const gathered = dateInWords(SNAPSHOT.date);
+const out = (href: string) => ref(href, site.host);
+const sources = Object.entries(SNAPSHOT.sources).map(([id, source]) => ({ id, ...source }));
+
+/** The years a series' values come from, and how many countries have one. */
+function coverage(metric: string) {
+  const years = SNAPSHOT.countries.map((country) => yearOf(country, metric as Metric)).filter((year): year is number => year !== undefined);
+  if (years.length === 0) return { countries: 0, years: '' };
+  const first = Math.min(...years);
+  const last = Math.max(...years);
+  return { countries: years.length, years: first === last ? String(last) : `${first} to ${last}` };
+}
+
+const WHAT: Record<string, string> = {
+  population: 'Population',
+  area: 'Land area',
+  gdp: 'GDP, nominal',
+  gdpPpp: 'GDP, PPP',
+  growthYear: 'Real GDP growth, each year',
+  lifeExpectancy: 'Life expectancy',
+  lifeExpectancyMale: 'Life expectancy, men',
+  lifeExpectancyFemale: 'Life expectancy, women',
+  fertility: 'Fertility rate',
+  urbanShare: 'Urban share',
+  largestCity: 'Largest city',
+  military: 'Armed forces personnel',
+  militarySpending: 'Military spending',
+  governmentSpending: 'Government spending',
+  under15: 'People under 15',
+  over64: 'People aged 65 and over',
+};
+
+const series = Object.entries(SNAPSHOT.indicators).map(([key, indicator]) => ({
+  what: WHAT[key] ?? key,
+  code: indicator.code,
+  name: indicator.name,
+  source: SNAPSHOT.sources[indicator.source]?.publisher ?? indicator.source,
+  ...coverage(key === 'growthYear' ? 'growth' : key),
+}));
+
+const QUARTERS: Quarter[] = [1, 2, 3, 4];
+const DIMENSION_WORDS: Record<Dimension, string> = { all: 'Every country', income: 'GDP per person', population: 'Population', area: 'Land area' };
+
+function quarterName(dimension: Exclude<Dimension, 'all'>, quarter: Quarter): string {
+  const cuts = RANGES.cuts(dimension);
+  const write = (value: number) => (dimension === 'income' ? dollars(value) : dimension === 'area' ? `${inWords(value)} km²` : inWords(value));
+  if (quarter === 1) return `under ${write(cuts[0])}`;
+  if (quarter === 4) return `${write(cuts[2])} and over`;
+  return `${write(cuts[quarter - 2] ?? 0)} to ${write(cuts[quarter - 1] ?? 0)}`;
+}
+
+// Every range the checker can use: each check, for every country and for each group of peers.
+const ranges = CHECKS.map((spec) => {
+  const groups: Group[] = spec.dimension === 'all' ? [ALL] : [...(spec.dimension === 'income' ? [ALL] : []), ...QUARTERS.map((quarter) => ({ dimension: spec.dimension, quarter }))];
+  const rows = groups.flatMap((group) => {
+    const range = RANGES.rangeFor(spec.metric, group, spec.scale === 'log');
+    if (!range) return [];
+    const fellBack = range.group.dimension !== group.dimension;
+    return [
+      {
+        group:
+          group.dimension === 'all' || group.quarter === undefined
+            ? 'Every country'
+            : `${DIMENSION_WORDS[group.dimension]} ${quarterName(group.dimension, group.quarter)}${fellBack ? ' (too few with data: every country is used)' : ''}`,
+        n: range.n,
+        typical: spec.sides === 'high' ? `up to ${spec.format(range.high)}` : `${spec.number(range.low)} to ${spec.format(range.high)}`,
+        lowest: `${nameOf(range.lowest.country)}, ${spec.number(range.min)}`,
+        highest: `${nameOf(range.highest.country)}, ${spec.number(range.max)}`,
+      },
+    ];
+  });
+  return { spec, rows };
+});
+
+const cuts = (['income', 'population', 'area'] as const).map((dimension) => ({
+  name: DIMENSION_WORDS[dimension],
+  quarters: QUARTERS.map((quarter) => `${quarterName(dimension, quarter)} (${RANGES.members({ dimension, quarter }).length})`),
+}));
+---
+
+<Page
+  site={site}
+  title={title}
+  description={description}
+  crumbs={[{ name: 'Data', path: '/data/' }]}
+  jsonld={[article(site, { headline: title, path: '/data/', description, updated: SNAPSHOT.date })]}
+>
+  <article class="eu-prose">
+    <p class="eu-kicker">Data</p>
+    <h1>{title}</h1>
+    <p class="eu-lead">
+      Every range in the <a href="/">checker</a> comes from open data about real countries, gathered once and saved with the tool. This page says where it comes
+      from, who to thank, and how the ranges were made.
+    </p>
+
+    <h2 id="snapshot">The snapshot</h2>
+    <p>
+      The real-world numbers were gathered on <time datetime={SNAPSHOT.date}>{gathered}</time> and saved as one file, the snapshot. It covers the {
+        SNAPSHOT.countries.length
+      } member states of the United Nations, wherever a number is published. Stats never asks another website for anything while you use it: the snapshot travels
+      with the tool, which is also why it works without a connection.
+    </p>
+    <p>Each number is the newest one published for that country, no more than seven years old. Countries with nothing that recent are left out of that check.</p>
+
+    <h2 id="sources">Sources and licences</h2>
+    {
+      sources.map((source) => (
+        <>
+          <h3 id={`source-${source.id}`}>{source.name}</h3>
+          <p>
+            Published by <a href={out(source.url)}>{source.publisher}</a>. Licence: <a href={out(source.licenceUrl)}>{source.licence}</a>.
+          </p>
+          <p>
+            <strong>Attribution:</strong> {source.attribution}
+          </p>
+          {source.note && <p>{source.note}</p>}
+        </>
+      ))
+    }
+    <p>
+      Stats changes the data in two ways, both described below: it works out ratios from pairs of series, and it averages growth over ten years. The words on this
+      site, and its code, are Eurth’s own and are not endorsed by any of these publishers.
+    </p>
+
+    <h2 id="series">The series</h2>
+    <div class="eu-scroll">
+      <table>
+        <caption>Each series in the snapshot, with the publisher’s own code</caption>
+        <thead>
+          <tr>
+            <th scope="col">What</th>
+            <th scope="col">Series</th>
+            <th scope="col">Code</th>
+            <th scope="col">From</th>
+            <th scope="col">Countries</th>
+            <th scope="col">Years</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            series.map((row) => (
+              <tr>
+                <th scope="row">{row.what}</th>
+                <td>{row.name}</td>
+                <td class="eu-data">{row.code}</td>
+                <td>{row.source}</td>
+                <td>{row.countries}</td>
+                <td>{row.years}</td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <h2 id="derived">Numbers worked out from the series</h2>
+    <ul>
+      <li><strong>Growth</strong>: the average yearly real GDP growth over the ten newest years, compounded. At least eight of the ten years are needed.</li>
+      <li><strong>Density</strong>: population over land area.</li>
+      <li><strong>GDP per person</strong>, nominal and at PPP: GDP over population, both for the same year.</li>
+      <li><strong>Price level</strong>: nominal GDP as a percentage of PPP GDP. The United States is 100.</li>
+      <li><strong>Largest city’s share</strong>: the population of the largest urban area over the country’s population. Capped at 100%.</li>
+      <li><strong>Military per 1,000 people</strong>: armed forces personnel over population, for the personnel’s year.</li>
+      <li><strong>Spending per soldier</strong>: military spending as a share of GDP, times GDP, over personnel, all for the personnel’s year.</li>
+    </ul>
+
+    <h2 id="method">How the ranges were made</h2>
+    <ol>
+      <li>
+        <strong>Peers.</strong> Real countries are split into four equal groups by GDP per person, by population and by land area. A check that depends on one of
+        these compares your nation with the group it would fall in; the others compare with every country. If GDP or population isn’t given, every country is
+        used.
+      </li>
+      <li>
+        <strong>The typical band</strong> runs from the {Math.round(BAND_LOW * 100)}th percentile of those countries to the {Math.round(BAND_HIGH * 100)}th: the
+        middle nine in ten. Percentiles between two countries are read off a straight line between them.
+      </li>
+      <li><strong>The full spread</strong> runs from the lowest country to the highest.</li>
+      <li>
+        <strong>The verdict.</strong> Inside the band, edges included: Plausible. Outside the band but inside the spread, edges included: Stretch. Outside the spread:
+        Unlikely. Numbers that can’t be true together are Unlikely whatever real countries do.
+      </li>
+      <li>
+        <strong>Thin groups.</strong> A group with fewer than {MIN_PEERS} countries that publish a number is too thin to judge by; every country is used instead.
+      </li>
+      <li>
+        <strong>The comparison.</strong> “About the same as” names a real country within 5% of your value (or a small step, for percentages and years); among several
+        it names the most populous, as the one most people can picture. Real countries are named for scale only.
+      </li>
+    </ol>
+    <div class="eu-scroll">
+      <table>
+        <caption>The four groups for each kind of peer, with the number of countries in each</caption>
+        <thead>
+          <tr><th scope="col">Sorted by</th><th scope="col">First</th><th scope="col">Second</th><th scope="col">Third</th><th scope="col">Fourth</th></tr>
+        </thead>
+        <tbody>
+          {cuts.map((row) => <tr><th scope="row">{row.name}</th>{row.quarters.map((quarter) => <td>{quarter}</td>)}</tr>)}
+        </tbody>
+      </table>
+    </div>
+
+    <h2 id="ranges">Every range</h2>
+    <p>These are the numbers behind every verdict. The lowest and highest are given without their unit, which is the one in the typical column.</p>
+    {
+      ranges.map(({ spec, rows }) => (
+        <>
+          <h3 id={`range-${spec.id}`}>{spec.label}</h3>
+          <p>
+            {spec.what} {spec.note}
+          </p>
+          <div class="eu-scroll">
+            <table>
+              <caption>{spec.label}: real countries, by group</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Compared with</th>
+                  <th scope="col">Countries</th>
+                  <th scope="col">Typical</th>
+                  <th scope="col">Lowest</th>
+                  <th scope="col">Highest</th>
+                </tr>
+              </thead>
+              <tbody>
+                {
+                  rows.map((row) => (
+                    <tr>
+                      <th scope="row">{row.group}</th>
+                      <td>{row.n}</td>
+                      <td>{row.typical}</td>
+                      <td>{row.lowest}</td>
+                      <td>{row.highest}</td>
+                    </tr>
+                  ))
+                }
+              </tbody>
+            </table>
+          </div>
+        </>
+      ))
+    }
+
+    <h2 id="pyramid">The population pyramid</h2>
+    <p>
+      The pyramid is an estimate from two numbers, and no real data about your nation’s past goes into it. A mortality curve (Siler’s, with deaths in infancy, a
+      steady background risk and a risk that rises with age) is fitted to the life expectancy, with women living five years longer than men, as they do on average in
+      the snapshot. The fertility rate gives the rate at which each generation is larger or smaller than the last. People over thirty follow a second rate, fitted to
+      real countries: their generations were born when families were larger.
+    </p>
+    <p>
+      Checked against the snapshot, the estimate is within about two percentage points of the real share of people under 15 and three of the share over 64, on
+      average. It is furthest off for countries shaped by migration, such as the Gulf states, and for the oldest countries in Europe and East Asia.
+    </p>
+
+    <h2 id="limits">What to keep in mind</h2>
+    <ul>
+      <li><strong>Modern only.</strong> These are the ranges of the 2020s. They say nothing about 1900, or about a world with different technology.</li>
+      <li><strong>Capitals.</strong> The real figures are for each country’s largest urban area, which is the capital in most countries but not all. So only a large capital is ever flagged.</li>
+      <li><strong>Armed forces.</strong> The series counts paramilitary forces with the military, and its newest year is older than the rest.</li>
+      <li><strong>Government spending.</strong> For most countries the series covers central government only, so federal countries look smaller than they are.</li>
+      <li><strong>Small states.</strong> Several series leave out the smallest countries, so checks for a very small nation rest on fewer peers.</li>
+      <li><strong>One year.</strong> Apart from growth, each number is a single recent year. A country in a war or a boom that year is in the spread as it was.</li>
+    </ul>
+    <p>
+      Found a mistake, or a better open source for one of these? Tell us on the <a href={out('https://eurth.org')}>Eurth forum</a>. The <a href="/guide/">guide</a> explains
+      how to read each number, and the <a href="/glossary/">glossary</a> has the words.
+    </p>
+    <p class="eu-muted">Last updated <time datetime={SNAPSHOT.date}>{gathered}</time>.</p>
+  </article>
+</Page>

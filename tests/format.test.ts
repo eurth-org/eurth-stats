@@ -68,3 +68,30 @@ describe('format', () => {
     expect(sentenceCase('the Netherlands')).toBe('The Netherlands');
   });
 });
+
+describe('editable', () => {
+  it('writes a value for a text box', async () => {
+    const { editable } = await import('../src/stats/format');
+    expect(editable(48_200_000)).toBe('48.2 million');
+    expect(editable(1.94e12)).toBe('1.94 trillion');
+    expect(editable(87.4e9)).toBe('87.4 billion');
+    expect(editable(512_000)).toBe('512,000');
+    expect(editable(48_200_001)).toBe('48,200,001');
+    expect(editable(79.4)).toBe('79.4');
+    expect(editable(-3.5)).toBe('-3.5');
+    expect(editable(0)).toBe('0');
+    expect(editable(1)).toBe('1');
+    expect(editable(6_000_000_000)).toBe('6 billion');
+  });
+
+  it('reads back as exactly the same number, for every example', async () => {
+    const { editable } = await import('../src/stats/format');
+    const { parseNumber } = await import('../src/stats/parse');
+    const { EXAMPLES } = await import('../src/stats/examples');
+    const values = [0.1 + 0.2, 123_456_789.123, 1e15, 9_999_999, 1_000_000, 999_999.5, -12.345, ...EXAMPLES.flatMap((example) => Object.values(example.nation.inputs))];
+    for (const value of values) {
+      const result = parseNumber(editable(value));
+      expect(result).toEqual({ ok: true, value });
+    }
+  });
+});
