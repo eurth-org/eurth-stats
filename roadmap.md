@@ -6,12 +6,12 @@ Three parts: what comes next, what each release added (newest first), and what's
 
 ## Where to pick up
 
-**15 November 2026.** Version 1 is built and waiting for its door. Every check passes locally: types, the build, 870-odd tests (every verdict boundary against the snapshot, and the suite's contrast, privacy, security-header, no-spoiler, page and launch checks), axe on all pages in both themes (also with results showing), and the smoke test in real Chrome. Nothing is deployed, as the handbook asks.
+**15 November 2026.** Version 1 is built and waiting for its door. Every check passes, locally and in GitHub's CI: types, the build, 876 tests (every verdict boundary against the snapshot, and the suite's contrast, privacy, security-header, no-spoiler, page and launch checks), axe on all pages in both themes (locally also with results showing), the smoke test in real Chrome, and Lighthouse. CI's deploy step is skipped until the door opens, as the handbook asks; nothing is deployed anywhere.
 
 Still to do before the door:
 
-- **Look at the first CI run on GitHub** (`gh run list -R eurth-org/eurth-stats`): it adds Lighthouse, which hasn't been run locally. The checker's script is about 220 KB before compression, most of it the snapshot; if performance comes in under 95, send the browser a slimmer copy of the snapshot (see Next).
 - **A review by Stijn.** Nothing has been reviewed yet, so the feedback log is empty.
+- **On 13 December,** see that the launch workflow starts at 22:30 UTC; if it hasn't by 22:45, run it by hand from the Actions tab. After the launch, delete `.github/workflows/launch.yml`.
 
 For Stijn to decide or pass on:
 
@@ -24,7 +24,7 @@ For Stijn to decide or pass on:
 
 ## Next
 
-- **A slimmer snapshot for the browser:** only the metrics the checks use, without sources and series names (those are for the Data page, which is built ahead of time).
+- **A slimmer snapshot for the browser:** only the metrics the checks use, without sources and series names (those are for the Data page, which is built ahead of time). The checker's script is about 220 KB before compression, most of it the snapshot; Lighthouse passes as it is.
 - **Earlier eras:** the Cold War, the interwar years and the 1900s, each with its own snapshot from historical data (the Maddison Project for GDP, the UN's and Gapminder's long series for population and life expectancy). The mock-up's Era menu waits for this.
 - **A refreshed snapshot each year,** when the World Bank and the UN publish new figures: `npm run snapshot`, read the diff, commit.
 - **Governmint's budget,** checked against military and government spending, once the profile carries it.
