@@ -466,6 +466,7 @@
 
   .pick {
     flex: 1 1 var(--space-16);
+    min-width: 0;
   }
 
   @media (max-width: 900px) {

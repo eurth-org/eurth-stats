@@ -269,3 +269,15 @@ describe('the example nations', () => {
     expect(result.scale[0]!.comparison).toMatch(/^More people than any real country/);
   });
 });
+
+describe('the sample picture for the sharing image', () => {
+  it('draws a few checks with their bars and icons, and no words from a visitor', async () => {
+    const { sampleArt } = await import('../src/stats/card');
+    const svg = sampleArt(report);
+    expect(svg.startsWith('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 416 ')).toBe(true);
+    expect(svg).toContain('aria-hidden="true"');
+    expect((svg.match(/<circle /g) ?? []).length).toBe(6);
+    expect(svg).toContain('>GDP growth</text>');
+    expect(svg).not.toMatch(/NaN|undefined/);
+  });
+});

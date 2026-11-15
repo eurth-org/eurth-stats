@@ -203,3 +203,31 @@ export function cardSvg(nation: Nation, report: Report, options: CardOptions): s
     '</svg>',
   ].join('');
 }
+
+/**
+ * A small picture of what the tool does, for the site's sharing image: a handful of checks,
+ * each a name, a range bar and its verdict's icon. Drawn from a real report, so it shows real bars.
+ */
+export function sampleArt(report: Report, palette: CardPalette = cardPalette('dark'), count = 6): string {
+  const width = 416;
+  const row = 84;
+  const pad = 28;
+  const checks = cardRows(report.checks, count + 1).rows.slice(0, count);
+  const height = pad * 2 + row * checks.length;
+  const parts: string[] = [`<rect width="${width}" height="${height}" rx="12" fill="${palette.raised}"/>`];
+  checks.forEach((check, index) => {
+    const top = pad + index * row;
+    const barY = top + 52;
+    const barStart = pad;
+    const barWidth = width - pad * 2 - 56;
+    const at = (position: number): number => round(barStart + barWidth * position);
+    parts.push(
+      `<text x="${pad}" y="${top + 26}" font-family="${SANS}" font-size="24" font-weight="700" fill="${palette.ink}">${escape(fit(check.label, barWidth, 24))}</text>`,
+      `<rect x="${at(check.bar.spreadStart)}" y="${barY - 6}" width="${round(Math.max(12, at(check.bar.spreadEnd) - at(check.bar.spreadStart)))}" height="12" rx="6" fill="${palette.surface}"/>`,
+      `<rect x="${at(check.bar.bandStart)}" y="${barY - 7}" width="${round(Math.max(14, at(check.bar.bandEnd) - at(check.bar.bandStart)))}" height="14" rx="7" fill="${palette.surface}" stroke="${palette.lineStrong}" stroke-width="2"/>`,
+      `<circle cx="${at(check.bar.marker)}" cy="${barY}" r="11" fill="${palette[check.verdict]}" stroke="${palette.raised}" stroke-width="3"/>`,
+      icon(VERDICT_ICON[check.verdict], width - pad - 36, barY - 18, 36, palette[check.verdict]),
+    );
+  });
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" aria-hidden="true">${parts.join('')}</svg>`;
+}

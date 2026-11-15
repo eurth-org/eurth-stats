@@ -5,7 +5,6 @@
    * the whole thing is described in a sentence for screen readers.
    */
   import { describePyramid } from '../stats/describe';
-  import { percent } from '../stats/format';
   import type { Pyramid } from '../stats/pyramid';
 
   let { pyramid }: { pyramid: Pyramid } = $props();
@@ -31,9 +30,8 @@
     {/each}
   </div>
   <figcaption class="eu-muted">
-    {description} Half the people are younger than {Math.round(pyramid.medianAge)}; for every 100 of working age there are
-    {Math.round(pyramid.dependencyRatio)} children and elders ({percent(pyramid.under15)} and {percent(pyramid.over64)} of everyone). An estimate from the
-    fertility rate and life expectancy alone: it knows nothing of wars, baby booms or migration.
+    {description} For every 100 people of working age there are {Math.round(pyramid.dependencyRatio)} children and elders. This is an estimate from the fertility
+    rate and life expectancy alone: it knows nothing of wars, baby booms or migration.
   </figcaption>
 </figure>
 

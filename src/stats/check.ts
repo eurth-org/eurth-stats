@@ -291,14 +291,22 @@ export interface Bar {
   marker: number;
   bandStart: number;
   bandEnd: number;
+  /** Where the track of the real spread starts and ends. 0 or 1 when it runs off the bar (see `clipped`). */
   spreadStart: number;
   spreadEnd: number;
-  /** Set when the value is off the end of the real spread; the marker is then pinned to that end. */
+  /** Set when the value is beyond every real country on that side; the marker is then pinned to that end. */
   beyond: 'low' | 'high' | null;
+  /** True on a side where the real spread runs on past the end of the bar. */
+  clipped: { low: boolean; high: boolean };
 }
 
-/** The room left at each end of a bar beyond the real spread, so a marker past it is still on the bar. */
+/** The room left at each end of a bar, so a marker past the end of the spread is still on the bar. */
 const BAR_MARGIN = 0.06;
+/**
+ * How far past the typical band a bar reaches, in band widths. One far-out country (a war, an
+ * oil boom) would otherwise squeeze the band into a sliver; the track then runs off the bar instead.
+ */
+const BAR_REACH = 2;
 
 function onScale(scale: Scale, value: number, floor: number): number {
   if (scale === 'log') return Math.log(Math.max(value, floor));
@@ -309,11 +317,17 @@ function onScale(scale: Scale, value: number, floor: number): number {
 export function barFor(value: number, range: Range, scale: Scale): Bar {
   // On a logarithmic bar nothing can sit at or below zero; such a value is pinned to the left end.
   const floor = range.min > 0 ? range.min / 1e6 : Number.MIN_VALUE;
-  const start = onScale(scale, range.min, floor);
-  const end = onScale(scale, range.max, floor);
+  const at = (x: number): number => onScale(scale, x, floor);
+  const reach = (at(range.high) - at(range.low)) * BAR_REACH;
+  const clipped = {
+    low: reach > 0 && at(range.min) < at(range.low) - reach,
+    high: reach > 0 && at(range.max) > at(range.high) + reach,
+  };
+  const start = clipped.low ? at(range.low) - reach : at(range.min);
+  const end = clipped.high ? at(range.high) + reach : at(range.max);
   const span = end - start;
   const place = (x: number): number => {
-    const fraction = span > 0 ? (onScale(scale, x, floor) - start) / span : 0.5;
+    const fraction = span > 0 ? (at(x) - start) / span : 0.5;
     const position = BAR_MARGIN + (1 - 2 * BAR_MARGIN) * fraction;
     return Math.round(Math.min(1, Math.max(0, position)) * 10000) / 10000;
   };
@@ -321,9 +335,10 @@ export function barFor(value: number, range: Range, scale: Scale): Bar {
     marker: place(value),
     bandStart: place(range.low),
     bandEnd: place(range.high),
-    spreadStart: place(range.min),
-    spreadEnd: place(range.max),
+    spreadStart: clipped.low ? 0 : place(range.min),
+    spreadEnd: clipped.high ? 1 : place(range.max),
     beyond: value > range.max ? 'high' : value < range.min ? 'low' : null,
+    clipped,
   };
 }
 

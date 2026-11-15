@@ -29,7 +29,7 @@ const NAMES = {
   EGY: 'Egypt', GMB: 'Gambia', IRN: 'Iran', PRK: 'North Korea', KOR: 'South Korea', KGZ: 'Kyrgyzstan',
   LAO: 'Laos', FSM: 'Micronesia', RUS: 'Russia', SVK: 'Slovakia', KNA: 'Saint Kitts and Nevis',
   LCA: 'Saint Lucia', VCT: 'Saint Vincent and the Grenadines', SYR: 'Syria', TUR: 'Türkiye',
-  VEN: 'Venezuela', VNM: 'Vietnam', YEM: 'Yemen', STP: 'São Tomé and Príncipe', SOM: 'Somalia',
+  VEN: 'Venezuela', NRU: 'Nauru', VNM: 'Vietnam', YEM: 'Yemen', STP: 'São Tomé and Príncipe', SOM: 'Somalia',
 };
 
 /** Countries whose name takes "the" in a sentence. */

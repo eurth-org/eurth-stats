@@ -119,6 +119,21 @@ describe('the bar', () => {
     expect(barFor(25, r, 'root').marker).toBe(0.5);
   });
 
+  it('lets the track run off the bar when one far-out country would squeeze the band', () => {
+    const lopsided = range(0, 10, 20, 1000);
+    const bar = barFor(15, lopsided, 'linear');
+    expect(bar.clipped).toEqual({ low: false, high: true });
+    expect(bar.spreadEnd).toBe(1);
+    expect(bar.spreadStart).toBe(0.06);
+    // The band is a quarter of the bar's span, not a hundredth of it.
+    expect(bar.bandEnd - bar.bandStart).toBeGreaterThan(0.2);
+    // A value far out but inside the real spread is pinned to the end, and is not "beyond".
+    expect(barFor(900, lopsided, 'linear')).toMatchObject({ marker: 1, beyond: null });
+    expect(barFor(1001, lopsided, 'linear')).toMatchObject({ marker: 1, beyond: 'high' });
+    const even = barFor(50, range(0, 10, 90, 100), 'linear');
+    expect(even.clipped).toEqual({ low: false, high: false });
+  });
+
   it('copes with a spread of one value', () => {
     const flat = range(5, 5, 5, 5);
     expect(barFor(5, flat, 'linear').marker).toBe(0.5);

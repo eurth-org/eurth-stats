@@ -56,19 +56,21 @@ const byIncome = QUARTERS.map((quarter, index) => {
   };
 });
 const byArea = QUARTERS.map((quarter, index) => ({ name: areaNames[index], density: band('density', { dimension: 'area', quarter }) }));
-const byPopulation = QUARTERS.map((quarter, index) => ({
-  name: populationNames[index],
-  capital: band('capitalShare', { dimension: 'population', quarter }),
-}));
+const byPopulation = QUARTERS.map((quarter, index) => {
+  const group: Group = { dimension: 'population', quarter };
+  const range = RANGES.rangeFor('largestCityShare', group);
+  return {
+    name: populationNames[index],
+    middle: range ? checkSpec('capitalShare').format(range.median) : 'no data',
+    capital: band('capitalShare', group),
+  };
+});
 
 // Countries where a dollar buys less than it does in the United States.
 const pricey = SNAPSHOT.countries
   .filter((country) => (valueOf(country, 'priceLevel') ?? 0) > 100)
   .sort((a, b) => (valueOf(b, 'priceLevel') ?? 0) - (valueOf(a, 'priceLevel') ?? 0))
   .map((country) => nameOf(country));
-// Countries with no armed forces to speak of.
-const unarmed = SNAPSHOT.countries.filter((country) => valueOf(country, 'militaryPer1000') === 0).length;
-
 // The smallest and largest real countries, for the section on sizes.
 const people = RANGES.rangeFor('population', ALL);
 const land = RANGES.rangeFor('area', ALL);
@@ -101,7 +103,7 @@ const wiki = (name: string) => wikipedia(name, site.host);
     <h2 id="verdicts">How Stats reads a number</h2>
     <p>
       Each number is set beside the same number for real countries: the {SNAPSHOT.countries.length} member states of the United Nations, as they were when the data was
-      gathered on {dateInWords(SNAPSHOT.date)}. The <a href="/glossary/#typical-band">typical band</a> holds the middle nine in ten of them. Inside it, a number is
+      gathered on {dateInWords(SNAPSHOT.date)}. The <a href="/glossary/#typical-band">typical band</a> holds the middle nine in ten of them. Inside it, a number is{' '}
       <strong>Plausible</strong>. Outside it, but no further out than some real country, it is a <strong>Stretch</strong>: it has happened, and it needs a reason. Beyond
       every real country it is <strong>Unlikely</strong>.
     </p>
@@ -149,17 +151,17 @@ const wiki = (name: string) => wikipedia(name, site.host);
     <h2 id="wealth">GDP per person</h2>
     <p>
       <a href="/glossary/#gdp">GDP</a> divided by population is the usual first measure of how rich a country is. The spread is enormous: {band('gdpPerPerson')} is
-      typical, a range of nearly a hundred to one, and the ends are {edge('gdpPerPerson', 'lowest')} and {edge('gdpPerPerson', 'highest')}. The very top is all
-      small places with one lucrative trade: finance, oil or gambling. A large country can’t live off a tax haven.
+      typical, a range of nearly a hundred to one, and the ends are {edge('gdpPerPerson', 'lowest')} and {edge('gdpPerPerson', 'highest')}. The very top is mostly
+      small places with one lucrative trade, such as finance or oil. A large country can’t live off a tax haven.
     </p>
     <p>
       There are two ways to count. <a href="/glossary/#nominal-gdp">Nominal GDP</a> converts everything to US dollars at the exchange rate; it says what a country can
-      buy abroad. <a href="/glossary/#ppp">PPP</a> counts what money buys at home; it says how people live, and what an army of locally paid soldiers costs. At PPP
-      the typical band is {band('gdpPppPerPerson')}: narrower, because poor countries are cheap to live in.
+      buy abroad. <a href="/glossary/#ppp">PPP</a> counts what money buys at home; it says how people live, and what an army of locally paid soldiers costs. At PPP,{' '}
+      {band('gdpPppPerPerson').replace(' at PPP', '')} is typical: a narrower range, because poor countries are cheap to live in.
     </p>
     <p>
       The gap between the two is the <a href="/glossary/#price-level">price level</a>. Poorer countries have lower prices, because wages are low and a haircut can’t
-      be imported. So a poor nation’s PPP figure should be two to four times its nominal one, and a rich nation’s roughly equal. Only {pricey.length} real
+      be imported. So a poor nation’s PPP figure should be two to five times its nominal one, and a rich nation’s roughly equal. Only {pricey.length} real{' '}
       {pricey.length === 1 ? 'country is' : 'countries are'} dearer than the United States{pricey.length > 0 ? `: ${list(pricey.slice(0, 6))}${pricey.length > 6 ? ' and a few more' : ''}` : ''}.
     </p>
     <div class="eu-scroll">
@@ -237,17 +239,18 @@ const wiki = (name: string) => wikipedia(name, site.host);
       more. A rich nation of villages needs explaining; so does a poor nation where nearly everyone lives in town, unless it is a city-state or a desert.
     </p>
     <p>
-      How much of the country lives in the capital depends mostly on how big the country is. A small nation’s capital is often the only real city, a
-      <a href="/glossary/#primate-city">primate city</a>, with a third of the population. A giant’s largest city rarely holds one person in ten.
+      How much of the country lives in the capital depends mostly on how big the country is. A small nation’s capital is often the only real city, a{' '}
+      <a href="/glossary/#primate-city">primate city</a>, with a fifth of the population or more. In the largest countries the biggest city usually holds nearer
+      a tenth. The table gives the middle country of each group, and the top of its typical band.
     </p>
     <div class="eu-scroll">
       <table>
         <caption>The largest city’s share of the population, by population</caption>
         <thead>
-          <tr><th scope="col">Population</th><th scope="col">Typical share</th></tr>
+          <tr><th scope="col">Population</th><th scope="col">Middle country</th><th scope="col">Typical share</th></tr>
         </thead>
         <tbody>
-          {byPopulation.map((row) => <tr><th scope="row">{row.name}</th><td>{row.capital}</td></tr>)}
+          {byPopulation.map((row) => <tr><th scope="row">{row.name}</th><td>{row.middle}</td><td>{row.capital}</td></tr>)}
         </tbody>
       </table>
     </div>
@@ -258,7 +261,7 @@ const wiki = (name: string) => wikipedia(name, site.host);
 
     <h2 id="military">Soldiers and what they cost</h2>
     <p>
-      Count <a href="/glossary/#active-military">active personnel</a> for every 1,000 people. {band('militaryPer1000')} is typical; {unarmed} real countries keep no
+      Count <a href="/glossary/#active-military">active personnel</a> for every 1,000 people. {band('militaryPer1000')} is typical; a few countries keep no
       armed forces at all, and the most militarised is {edge('militaryPer1000', 'highest')}. Above ten or so, a country has conscription, a hostile neighbour or
       both. Every soldier is a worker missing from a farm or a factory, which is why even states that fear for their lives rarely go far beyond that in peacetime.
     </p>
@@ -285,9 +288,9 @@ const wiki = (name: string) => wikipedia(name, site.host);
 
     <h2 id="government">Government spending</h2>
     <p>
-      Richer countries’ governments spend a larger share of GDP, mostly on pensions, health and schools; economists call the pattern Wagner’s law. A low-income
-      state that spends half its GDP has no real precedent, because it can’t collect that much tax from farmers and street traders. A rich one that spends a tenth
-      has no pensions, no public hospitals, or an oil fund that pays for everything.
+      Richer countries’ governments tend to spend a larger share of GDP, mostly on pensions, health and schools; economists call the pattern Wagner’s law. Poorer
+      states usually spend less, because it is hard to collect much tax from farmers and street traders, and the ones that spend a great deal mostly live on aid
+      or on one resource. A rich state that spends a tenth of GDP has no pensions, no public hospitals, or an oil fund that pays for everything.
     </p>
     <p>
       A caution about the real figures here: for most countries they cover <a href="/glossary/#central-government">central government</a> only. Federal countries,

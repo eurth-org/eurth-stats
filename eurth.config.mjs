@@ -24,7 +24,7 @@ export const site = defineSite({
   repo: 'https://github.com/eurth-org/eurth-stats',
   category: 'UtilitiesApplication',
   ogAlt:
-    'Stats, the plausibility checker by Eurth, at stats.eurth.org: a results card for a fictional nation, with a range bar and a verdict for each number.',
+    'Stats, the plausibility checker by Eurth, at stats.eurth.org: the Eurth yurt beside six range bars, four marked plausible with a tick and two marked a stretch with a warning sign.',
   llms: [
     '## What Stats does',
     '',

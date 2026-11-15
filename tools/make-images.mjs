@@ -5,11 +5,15 @@ import { makeImages, sharingImage } from '@eurth/style/images';
 import { createServer } from 'vite';
 import { site } from '../eurth.config.mjs';
 
-// The picture on the sharing image comes from the same code as the site (Vite reads TypeScript).
+// The picture on the sharing image comes from the same code as the site (Vite reads TypeScript):
+// a few of the checks of an example nation, with their real bars and verdicts.
 const vite = await createServer({ server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' });
 try {
-  const { plateSvg, templates } = await vite.ssrLoadModule('/src/tool/model.ts');
-  const made = await makeImages({ sharing: [{ file: 'og.png', html: sharingImage({ site, art: plateSvg(templates[0].plate) }) }] });
+  const { sampleArt } = await vite.ssrLoadModule('/src/stats/card.ts');
+  const { checkNation } = await vite.ssrLoadModule('/src/stats/check.ts');
+  const { findExample } = await vite.ssrLoadModule('/src/stats/examples.ts');
+  const art = sampleArt(checkNation(findExample('skarn').nation.inputs));
+  const made = await makeImages({ sharing: [{ file: 'og.png', html: sharingImage({ site, art }) }] });
   console.log(`Made ${made.map((file) => `public/${file}`).join(', ')}`);
 } finally {
   await vite.close();

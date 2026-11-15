@@ -263,3 +263,61 @@ describe('Governmint’s budget, once the profile carries it', () => {
     expect(impliedMilitarySpending({ governmentSpending: 40 }, undefined)).toBeUndefined();
   });
 });
+
+describe('with @eurth/profile, as the site uses it', async () => {
+  const { SECTION_OWNERS, createProfile, getSection, parseProfile, serialiseProfile, setSection, validateProfile } = await import('@eurth/profile');
+  const { readFileSync } = await import('node:fs');
+  const example = (name: string) => readFileSync(new URL(`../node_modules/@eurth/profile/examples/${name}.eurth.json`, import.meta.url), 'utf8');
+
+  it('owns the stats section and no other', () => {
+    expect(SECTION_OWNERS.stats).toEqual(['stats']);
+  });
+
+  it('writes a section the profile’s own checker accepts, for every example nation', async () => {
+    const { EXAMPLES } = await import('../src/stats/examples');
+    for (const { nation } of EXAMPLES) {
+      const section = toStatsSection(nation, checkNation(nation.inputs), NOW, 'https://stats.eurth.org/?v=1&p=5');
+      const profile = setSection(createProfile(nation.name), 'stats', section as never);
+      const verdict = validateProfile(profile);
+      expect(verdict.ok, JSON.stringify(verdict)).toBe(true);
+      const again = parseProfile(serialiseProfile(profile));
+      expect(again.ok).toBe(true);
+      if (again.ok) expect(fromProfile(again.profile).nation).toEqual(nation);
+    }
+  });
+
+  it('adds its section to a real profile and leaves every other byte of it alone', () => {
+    const parsed = parseProfile(example('calderwyn'));
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    const before = parsed.profile;
+    const read = fromProfile(before);
+    expect(read.found).toBe(true);
+    expect(read.nation.name).toBe('Kingdom of Calderwyn');
+    expect(read.government?.form).toBe('Parliamentary constitutional monarchy');
+
+    const nation = { name: read.nation.name, inputs: { ...read.nation.inputs, fertility: 1.6 } };
+    const section = toStatsSection(nation, checkNation(nation.inputs), NOW, 'https://stats.eurth.org/?v=1&p=5');
+    const merged = withStatsSection({ stats: getSection(before, 'stats') }, section).stats;
+    const after = setSection(before, 'stats', merged as never);
+
+    expect(validateProfile(after).ok).toBe(true);
+    for (const key of Object.keys(before)) {
+      if (key === 'stats' || key === 'meta') continue;
+      expect((after as Record<string, unknown>)[key]).toEqual((before as Record<string, unknown>)[key]);
+    }
+    expect(after.meta.nation).toBe(before.meta.nation);
+    expect((getSection(after, 'stats') as Record<string, unknown>).fertilityRate).toBe(1.6);
+    expect((getSection(after, 'stats') as Record<string, unknown>).population).toBe(12_480_000);
+  });
+
+  it('reads the two smaller example profiles without complaint', () => {
+    for (const name of ['vantmoor', 'hesperwick']) {
+      const parsed = parseProfile(example(name));
+      expect(parsed.ok).toBe(true);
+      if (parsed.ok) expect(() => fromProfile(parsed.profile)).not.toThrow();
+    }
+    const vantmoor = parseProfile(example('vantmoor'));
+    if (vantmoor.ok) expect(fromProfile(vantmoor.profile).nation.inputs).toEqual({ population: 3_950_000, area: 61_200, gdp: 87_400_000_000, lifeExpectancy: 78.2 });
+  });
+});
